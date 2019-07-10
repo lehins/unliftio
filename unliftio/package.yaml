@@ -38,8 +38,8 @@ library:
   - src
 
   when:
-  - condition: !os(windows)
-    then:
+  - condition: os(windows)
+    else:
       other-modules:
         - UnliftIO.IO.File.Posix
 
