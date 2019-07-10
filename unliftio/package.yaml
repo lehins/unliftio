@@ -37,12 +37,6 @@ library:
   source-dirs:
   - src
 
-  when:
-  - condition: os(windows)
-    else:
-      other-modules:
-        - UnliftIO.IO.File.Posix
-
   ghc-options:
     - -fwarn-incomplete-uni-patterns
 
@@ -53,6 +47,8 @@ library:
   - condition: os(darwin)
     then:
       c-sources: cbits/time-osx.c
+      other-modules:
+        - UnliftIO.IO.File.Posix
     else:
       when:
       - condition: os(windows)
@@ -62,6 +58,8 @@ library:
           c-sources:
             - cbits/file-posix.c
             - cbits/time-posix.c
+          other-modules:
+            - UnliftIO.IO.File.Posix
 
 tests:
   unliftio-spec:
