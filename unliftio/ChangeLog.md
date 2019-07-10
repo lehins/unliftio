@@ -1,5 +1,18 @@
 # Changelog for unliftio
 
+## 0.2.12
+
+* Addition of `UnliftIO.IO.File` module and atomic+durable file writes:
+
+  * `writeBinaryFile`
+  * `writeBinaryFileAtomic`
+  * `writeBinaryFileDurable`
+  * `writeBinaryFileDurableAtomic`
+  * `withBinaryFileAtomic`
+  * `withBinaryFileDurable`
+  * `withBinaryFileDurableAtomic`
+  * `ensureFileDurable`
+
 ## 0.2.11
 
 * Deprecate `forkWithUnmask` in favor of the newly added `forkIOWithUnmask` to
