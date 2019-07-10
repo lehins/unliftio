@@ -37,8 +37,11 @@ library:
   source-dirs:
   - src
 
-  other-modules:
-    - UnliftIO.IO.File.Posix
+  when:
+  - condition: !os(windows)
+    then:
+      other-modules:
+        - UnliftIO.IO.File.Posix
 
   ghc-options:
     - -fwarn-incomplete-uni-patterns
