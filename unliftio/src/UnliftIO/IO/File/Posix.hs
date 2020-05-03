@@ -8,6 +8,7 @@ module UnliftIO.IO.File.Posix
   ( withBinaryFileDurable
   , withBinaryFileDurableAtomic
   , withBinaryFileAtomic
+  , renameFilePathAtomicDurable
   , ensureFileDurable
   )
   where
@@ -31,7 +32,7 @@ import qualified GHC.IO.FD as FD
 import qualified GHC.IO.Handle.FD as HandleFD
 import qualified GHC.IO.Handle.Types as HandleFD (Handle(..), Handle__(..))
 import System.Directory (removeFile)
-import System.FilePath (takeDirectory, takeFileName)
+import System.FilePath (takeDirectory, takeFileName, dropTrailingPathSeparator)
 import System.IO (Handle, IOMode(..), SeekMode(..), hGetBuf, hPutBuf,
                   openBinaryTempFile)
 import System.IO.Error (ioeGetErrorType, isAlreadyExistsError,
@@ -361,11 +362,23 @@ atomicTempFileRename mDirFd mFileMode eTmpFile filePath =
       forM_ mFileMode $ \fileMode -> Posix.setFileMode tmpFilePath fileMode
       case mDirFd of
         Nothing -> Posix.rename tmpFilePath filePath
-        Just dirFd ->
-          withFilePath (takeFileName filePath) $ \cToFilePath ->
-            withFilePath (takeFileName tmpFilePath) $ \cTmpFilePath ->
-              throwErrnoIfMinus1Retry_ "atomicFileCreate - c_safe_renameat" $
-              c_renameat dirFd cTmpFilePath dirFd cToFilePath
+        Just dirFd -> do
+          let tmpRelFilePath = takeFileName tmpFilePath
+              relFilePath = takeFileName filePath
+          fileRenameAt dirFd tmpRelFilePath dirFd relFilePath
+
+-- | Rename file or directory atomically.
+fileRenameAt ::
+     DirFd -- ^ Old file directory
+  -> FilePath -- ^ Old file name relative to the directory
+  -> DirFd -- ^ New file directory
+  -> FilePath -- ^ New file name relative to the dirctory
+  -> IO ()
+fileRenameAt oldDirFd oldFilePath newDirFd newFilePath =
+  withFilePath oldFilePath $ \cOldFilePath ->
+    withFilePath newFilePath $ \cNewFilePath ->
+      throwErrnoIfMinus1Retry_ "atomicFileRename - c_safe_renameat" $
+      c_renameat oldDirFd cOldFilePath newDirFd cNewFilePath
 
 
 withDirectory :: MonadUnliftIO m => FilePath -> (DirFd -> m a) -> m a
@@ -580,3 +593,14 @@ withBinaryFileAtomic filePath iomode action =
       liftIO $ atomicTempFileRename Nothing mFileMode eTmpFile filePath
       pure res
 
+
+renameFilePathAtomicDurable :: MonadIO m => FilePath -> FilePath -> m ()
+renameFilePathAtomicDurable oldName' newName' = do
+  let oldName = dropTrailingPathSeparator oldName'
+  let newName = dropTrailingPathSeparator newName'
+  liftIO $
+    withDirectory (takeDirectory oldName) $ \oldDirFd ->
+      withDirectory (takeDirectory newName) $ \newDirFd -> do
+        fileRenameAt oldDirFd (takeFileName oldName) newDirFd (takeFileName newName)
+        fsyncDirectoryFd "renameFilePathAtomicDurable (newDir)" newDirFd
+        fsyncDirectoryFd "renameFilePathAtomicDurable (oldDir)" oldDirFd
